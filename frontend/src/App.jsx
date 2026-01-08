@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { AddressVerification } from './components/AddressVerification';
+import { TransactionStatus } from './components/TransactionStatus';
+
 
 export default function App() {
   const [recipient, setRecipient] = useState("");
@@ -6,8 +10,46 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [txHash, setTxHash] = useState("");
   const [loading, setLoading] = useState(false);
+  const [recipientAcc, setRecipientAcc] = useState(null)
+  const [verifying, setVerifying] = useState(false)
 
-  const sendRLUSD = async () => {
+  // verify recipient address when it changes 
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (recipient && recipient.match(/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/)) {
+        verifyAddress();
+      } else {
+        setRecipientAcc(null);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [recipient])
+
+  const verifyAddress = async () => {
+    setVerifying(true)
+    try {
+      const response = await fetch("http://localhost:3001/verify-address", {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: recipient })
+      })
+      console.log(response)
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data)
+        setRecipientAcc(data)
+      } else {
+        setRecipientAcc({ exists: false });
+      }
+    } catch (err) {
+      console.error("Verification error:", err);
+      setRecipientAcc({ exists: false });
+    }
+    setVerifying(false);
+  }
+
+  const sendXRP = async () => {
     // Validation
     if (!recipient || !amount) {
       setStatus("❌ Please fill in all fields");
@@ -16,6 +58,12 @@ export default function App() {
 
     if (parseFloat(amount) <= 0) {
       setStatus("❌ Amount must be greater than 0");
+      return;
+    }
+
+    // Validate XRPL address format 
+    if (!recipient.match(/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/)) {
+      setStatus("❌ Invalid XRPL address format");
       return;
     }
 
@@ -158,7 +206,13 @@ export default function App() {
             boxSizing: 'border-box'
           }}
         />
+        <AddressVerification
+          verifying={verifying}
+          recipientAcc={recipientAcc}
+          recipient={recipient}
+        />
       </div>
+
 
       <div style={{ marginBottom: '20px' }}>
         <label style={{
@@ -189,7 +243,7 @@ export default function App() {
       </div>
 
       <button
-        onClick={sendRLUSD}
+        onClick={sendXRP}
         disabled={loading}
         style={{
           width: '100%',
@@ -213,66 +267,7 @@ export default function App() {
         {loading ? "Processing..." : "Send Payment"}
       </button>
 
-      {status && (
-        <div style={{
-          marginTop: '20px',
-          padding: '15px',
-          backgroundColor: status.includes('❌') ? '#fee' :
-            status.includes('✅') || status.includes('🎉') ? '#efe' : '#fef9e7',
-          border: `2px solid ${status.includes('❌') ? '#fcc' :
-            status.includes('✅') || status.includes('🎉') ? '#cfc' : '#fce4a6'}`,
-          borderRadius: '8px',
-          fontSize: '14px',
-          color: '#333'
-        }}>
-          <strong>Status:</strong> {status}
-
-          {status.includes('Click here to sign') && (
-            <div style={{ marginTop: '10px' }}>
-              <a
-                href={status.split('Click here to sign: ')[1]}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'inline-block',
-                  padding: '10px 20px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  textDecoration: 'none',
-                  borderRadius: '6px',
-                  fontWeight: '600'
-                }}
-              >
-                🔗 Open Xumm to Sign
-              </a>
-            </div>
-          )}
-        </div>
-      )}
-
-      {txHash && (
-        <div style={{
-          marginTop: '15px',
-          padding: '15px',
-          backgroundColor: '#e3f2fd',
-          border: '2px solid #90caf9',
-          borderRadius: '8px',
-          fontSize: '13px',
-          wordBreak: 'break-all'
-        }}>
-          <strong>Transaction Hash:</strong><br />
-          <code style={{ color: '#1565c0' }}>{txHash}</code>
-          <br /><br />
-          <a
-            href={`https://testnet.xrpl.org/transactions/${txHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#1976d2' }}
-          >
-            View on Explorer →
-          </a>
-        </div>
-      )}
+      <TransactionStatus status={status} txHash={txHash} />
 
       <div style={{
         marginTop: '30px',
@@ -285,7 +280,7 @@ export default function App() {
         <p><strong>📝 How to use:</strong></p>
         <ol style={{ paddingLeft: '20px', margin: '10px 0' }}>
           <li>Enter recipient's XRPL address</li>
-          <li>Enter amount of RLUSD to send</li>
+          <li>Enter amount of XRP to send</li>
           <li>Click "Send Payment"</li>
           <li>Sign the transaction in Xumm app</li>
         </ol>
