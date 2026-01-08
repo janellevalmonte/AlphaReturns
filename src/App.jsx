@@ -1,35 +1,43 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from "react";
+import { Xumm } from "xumm";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [qr, setQr] = useState(null);
+
+  async function connectWallet() {
+    console.log("connectWallet called");
+
+    const xumm = new Xumm("NEW_API_KEY_HERE"); // ← use the NEW app key
+
+    const payload = await xumm.payload.create({
+      txjson: {
+        TransactionType: "SignIn",
+      },
+    });
+
+    console.log("FULL PAYLOAD:", payload);
+    console.log("SIGNIN LINK:", payload.next.always);
+
+    // THIS is the real link
+    setQr(payload.next.always);
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div style={{ padding: 40 }}>
+      <h1>Wallet Demo</h1>
 
-export default App
+      <button onClick={connectWallet}>
+        Connect Wallet
+      </button>
+
+      {qr && (
+        <p>
+          Sign in via Xumm:{" "}
+          <a href={qr} target="_blank" rel="noreferrer">
+            {qr}
+          </a>
+        </p>
+      )}
+    </div>
+  );
+}
