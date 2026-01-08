@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from 'dotenv';
 import { XummSdk } from 'xumm-sdk';
+import { Client } from 'xrpl'
 
 dotenv.config();
 
@@ -53,7 +54,6 @@ app.post("/create-payment", async (req, res) => {
 
         console.log(`Creating: ${amount} XRP to ${destination}`);
 
-        // XRP payment is simpler - no issuer needed!
         const payloadData = {
             txjson: {
                 TransactionType: "Payment",
@@ -167,6 +167,37 @@ app.get("/health", (req, res) => {
         status: "ok",
         xummConfigured: !!(process.env.XUMM_API_KEY && process.env.XUMM_API_SECRET)
     });
+});
+
+app.post("/verify-address", async (req, res) => {
+    const { address } = req.body;
+    console.log(`Verifying address: ${address}`)
+    try {
+        let client;
+        client = new Client('wss://testnet.xrpl-labs.com');
+        await client.connect();
+        console.log('Connected to XRPL');
+
+        const response = await client.request({
+            command: 'account_info',
+            account: address,
+            ledger_index: 'validated'
+        });
+
+
+        console.log(response)
+
+        await client.disconnect();
+
+        res.json({
+            exists: true,
+            validated: response.result.validated,
+            requiresTag: (response.result.account_data.Flags & 0x00100000) !== 0, // RequireDestTag flag
+            balance: response.result.account_data.Balance
+        });
+    } catch (err) {
+        res.json({ exists: false });
+    }
 });
 
 const PORT = 3001;
